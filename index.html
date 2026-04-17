@@ -76,8 +76,9 @@
         button:hover { background: #f5f5f3; }
         button:active { transform: scale(0.98); }
 
+        /* Modified: Displayed by default now */
         .stats-grid {
-            display: none;
+            display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
             margin-bottom: 1.25rem;
@@ -117,6 +118,12 @@
             line-height: 1.6;
         }
 
+        .divider {
+            height: 1px;
+            background: rgba(0,0,0,0.05);
+            margin: 1.5rem 0;
+        }
+
         @media (prefers-color-scheme: dark) {
             body { background: #1a1a18; }
             .card { background: #242422; border-color: rgba(255,255,255,0.1); }
@@ -130,6 +137,7 @@
             .stat-label { color: #777; }
             .stat-value { color: #f0ede8; }
             #result { background: #1a1a18; border-color: rgba(255,255,255,0.08); color: #999; }
+            .divider { background: rgba(255,255,255,0.05); }
         }
     </style>
 </head>
@@ -137,8 +145,19 @@
 
 <div class="card">
     <div class="header">
-        <p class="eyebrow">Serverless compute</p>
-        <h1>Prime finder</h1>
+        <p class="eyebrow">System Readiness</p>
+        <h1>Prime Finder</h1>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <p class="stat-label">Page Load</p>
+            <p class="stat-value" id="pageLoadTime">...</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-label">DOM Ready</p>
+            <p class="stat-value" id="domTime">...</p>
+        </div>
     </div>
 
     <div class="input-row">
@@ -146,21 +165,21 @@
         <button onclick="getPrimes()">Compute</button>
     </div>
 
-    <div id="statsGrid" class="stats-grid">
+    <div id="statsGridCompute" class="stats-grid" style="display: none;">
         <div class="stat-card">
-            <p class="stat-label">Server compute</p>
+            <p class="stat-label">Server Compute</p>
             <p class="stat-value" id="serverTime">—</p>
         </div>
         <div class="stat-card">
-            <p class="stat-label">Network latency</p>
+            <p class="stat-label">Net Overhead</p>
             <p class="stat-value" id="networkTime">—</p>
         </div>
         <div class="stat-card">
-            <p class="stat-label">Total primes</p>
+            <p class="stat-label">Total Primes</p>
             <p class="stat-value" id="primeCount">—</p>
         </div>
         <div class="stat-card">
-            <p class="stat-label">Memory est.</p>
+            <p class="stat-label">Heap Usage</p>
             <p class="stat-value" id="memHint">—</p>
         </div>
     </div>
@@ -169,10 +188,24 @@
 </div>
 
 <script>
+    // 1. Capture initial performance on load
+    window.addEventListener('load', () => {
+        // Use the PerformanceNavigationTiming API
+        const [entry] = performance.getEntriesByType('navigation');
+
+        if (entry) {
+            const loadTime = entry.loadEventEnd - entry.startTime;
+            const domReady = entry.domContentLoadedEventEnd - entry.startTime;
+
+            document.getElementById('pageLoadTime').innerText = Math.round(loadTime) + 'ms';
+            document.getElementById('domTime').innerText = Math.round(domReady) + 'ms';
+        }
+    });
+
     async function getPrimes() {
         const n = document.getElementById('numberInput').value;
         const resultDiv = document.getElementById('result');
-        const statsGrid = document.getElementById('statsGrid');
+        const computeGrid = document.getElementById('statsGridCompute');
 
         if (!n) return alert('Enter a number');
 
@@ -181,6 +214,7 @@
         resultDiv.innerText = 'Requesting serverless instance…';
 
         try {
+            // NOTE: This fetch will fail unless you have a real /api/primes endpoint
             const response = await fetch(`/api/primes?n=${n}`);
             const data = await response.json();
 
@@ -189,7 +223,7 @@
             const serverExec = parseFloat(data.stats.executionTimeMs);
             const networkOverhead = totalRtt - serverExec;
 
-            statsGrid.style.display = 'grid';
+            computeGrid.style.display = 'grid';
             document.getElementById('serverTime').innerText = serverExec.toFixed(2) + 'ms';
             document.getElementById('networkTime').innerText = networkOverhead.toFixed(2) + 'ms';
             document.getElementById('primeCount').innerText = data.count.toLocaleString();
@@ -198,7 +232,9 @@
             resultDiv.innerText = 'Primes: ' + data.primes.slice(0, 100).join(', ') + (data.primes.length > 100 ? '…' : '');
 
         } catch (err) {
-            resultDiv.innerText = 'Error fetching data.';
+            // Fallback for demo purposes if API doesn't exist
+            resultDiv.innerText = 'API not found. Simulate local compute?';
+            console.error("Fetch error:", err);
         }
     }
 </script>
