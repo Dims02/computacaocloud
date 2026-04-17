@@ -3,56 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prime Finder</title>
+    <title>Cloud Prime Finder</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            background-color: #fafafa;
+            background-color: #f0f2f5;
         }
         .container {
-            text-align: center;
             background: white;
             padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             width: 90%;
-            max-width: 400px;
+            max-width: 500px;
         }
-        h1 { margin-bottom: 1rem; font-weight: 700; }
+        h1 { margin-top: 0; color: #111; }
+        .input-group { margin-bottom: 1.5rem; }
         input {
-            width: 80%;
+            width: 70%;
             padding: 12px;
-            border: 1px solid #eaeaea;
-            border-radius: 6px;
-            margin-bottom: 1rem;
+            border: 2px solid #eee;
+            border-radius: 8px;
             font-size: 1rem;
+            outline: none;
         }
+        input:focus { border-color: #0070f3; }
         button {
             background: #000;
             color: #fff;
             border: none;
             padding: 12px 24px;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            transition: background 0.2s;
         }
-        button:hover { background: #333; }
-        #result {
+
+        /* Stats Dashboard Styling */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
             margin-top: 1.5rem;
             text-align: left;
-            max-height: 200px;
+            display: none; /* Hidden until search */
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #eaeaea;
+        }
+        .stat-label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
+        .stat-value { font-size: 1.1rem; font-weight: 700; color: #0070f3; font-family: monospace; }
+
+        #result {
+            margin-top: 1rem;
+            max-height: 150px;
             overflow-y: auto;
-            word-wrap: break-word;
-            font-family: monospace;
-            background: #f1f1f1;
-            padding: 10px;
-            border-radius: 6px;
+            background: #222;
+            color: #0f0;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
             display: none;
         }
     </style>
@@ -60,11 +78,32 @@
 <body>
 
 <div class="container">
-    <h1>UBI Prime Finder</h1>
-    <p>Enter a number to find all primes up to it.</p>
-    <input type="number" id="numberInput" placeholder="Enter a number (e.g. 100)">
-    <br>
-    <button onclick="getPrimes()">Find Primes</button>
+    <h1>Prime Finder</h1>
+    <p>Serverless Compute Analysis</p>
+
+    <div class="input-group">
+        <input type="number" id="numberInput" placeholder="Max Number (e.g. 100000)">
+        <button onclick="getPrimes()">Compute</button>
+    </div>
+
+    <div id="statsGrid" class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Server Compute</div>
+            <div class="stat-value" id="serverTime">0ms</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Network Latency</div>
+            <div class="stat-value" id="networkTime">0ms</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Primes</div>
+            <div class="stat-value" id="primeCount">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Memory Est.</div>
+            <div class="stat-value" id="memHint">0MB</div>
+        </div>
+    </div>
 
     <div id="result"></div>
 </div>
@@ -73,24 +112,37 @@
     async function getPrimes() {
         const n = document.getElementById('numberInput').value;
         const resultDiv = document.getElementById('result');
+        const statsGrid = document.getElementById('statsGrid');
 
-        if (!n) return alert("Please enter a number");
+        if (!n) return alert("Enter a number");
+
+        // Client-side start time
+        const clientStart = performance.now();
 
         resultDiv.style.display = 'block';
-        resultDiv.innerText = "Loading...";
+        resultDiv.innerText = "Requesting Serverless Instance...";
 
         try {
-            // This calls the serverless function we created earlier
             const response = await fetch(`/api/primes?n=${n}`);
             const data = await response.json();
 
-            if (data.primes) {
-                resultDiv.innerText = data.primes.join(', ');
-            } else {
-                resultDiv.innerText = "Error: " + data.error;
-            }
+            // Client-side end time
+            const clientEnd = performance.now();
+            const totalRtt = clientEnd - clientStart;
+            const serverExec = parseFloat(data.stats.executionTimeMs);
+            const networkOverhead = totalRtt - serverExec;
+
+            // Display Results
+            statsGrid.style.display = 'grid';
+            document.getElementById('serverTime').innerText = serverExec.toFixed(2) + 'ms';
+            document.getElementById('networkTime').innerText = networkOverhead.toFixed(2) + 'ms';
+            document.getElementById('primeCount').innerText = data.count.toLocaleString();
+            document.getElementById('memHint').innerText = data.stats.memoryHint;
+
+            resultDiv.innerText = "Primes: " + data.primes.slice(0, 100).join(', ') + (data.primes.length > 100 ? '...' : '');
+
         } catch (err) {
-            resultDiv.innerText = "Failed to fetch primes.";
+            resultDiv.innerText = "Error fetching data.";
         }
     }
 </script>
